@@ -6,8 +6,13 @@ from flask import (
 )
 
 from week1.opensearch import get_opensearch
+from week1.query_constructor import QueryConstructor
 
 bp = Blueprint('search', __name__, url_prefix='/search')
+
+index_name = "bbuy_products"
+
+debug = False
 
 
 # Process the filters requested by the user and return a tuple that is appropriate for use in: the query, URLs displaying the filter and the display of the applied filters
@@ -22,17 +27,21 @@ def process_filters(filters_input):
     for filter in filters_input:
         type = request.args.get(filter + ".type")
         display_name = request.args.get(filter + ".displayName", filter)
-        #
-        # We need to capture and return what filters are already applied so they can be automatically added to any existing links we display in aggregations.jinja2
-        applied_filters += "&filter.name={}&{}.type={}&{}.displayName={}".format(filter, filter, type, filter,
-                                                                                 display_name)
-        #TODO: IMPLEMENT AND SET filters, display_filters and applied_filters.
+
         # filters get used in create_query below.  display_filters gets used by display_filters.jinja2 and applied_filters gets used by aggregations.jinja2 (and any other links that would execute a search.)
         if type == "range":
-            pass
+            f, applied_filter = range_filter(request.args, filter)
+            filters.append(f)
+            applied_filters += applied_filter
         elif type == "terms":
-            pass #TODO: IMPLEMENT
+            f, applied_filter = terms_filter(request.args, filter)
+            filters.append(f)
+            applied_filters += applied_filter
+
     print("Filters: {}".format(filters))
+    print(f"filter input: {filters_input}")
+    print(f"applied filters: {applied_filters}")
+    print(f"request args: {request.args}")
 
     return filters, display_filters, applied_filters
 
@@ -72,9 +81,11 @@ def query():
         query_obj = create_query(user_query, filters, sort, sortDir)
     else:
         query_obj = create_query("*", [], sort, sortDir)
-
-    print("query obj: {}".format(query_obj))
-    response = None   # TODO: Replace me with an appropriate call to OpenSearch
+    
+    response = opensearch.search( body = query_obj, index = index_name )
+    
+    if debug:
+        print(f"response: {response}")
     # Postprocess results here if you so desire
 
     #print(response)
@@ -88,13 +99,65 @@ def query():
 
 def create_query(user_query, filters, sort="_score", sortDir="desc"):
     print("Query: {} Filters: {} Sort: {}".format(user_query, filters, sort))
-    query_obj = {
-        'size': 10,
-        "query": {
-            "match_all": {} # Replace me with a query that both searches and filters
-        },
-        "aggs": {
-            #TODO: FILL ME IN
+
+    if user_query == "*":
+        return QueryConstructor() \
+        .match_all() \
+        .range_aggs() \
+        .missing_image_aggs() \
+        .department_aggs() \
+        .build()
+
+    query_obj = QueryConstructor().limit_source() \
+        .bool_query() \
+        .query_string(user_query, "must") \
+        .apply_filters(filters) \
+        .range_aggs() \
+        .missing_image_aggs() \
+        .department_aggs() \
+        .build_function_query()
+
+    if debug:
+        print("query obj: {}".format(query_obj))
+
+    return query_obj
+
+def range_filter(args, filter_name):
+    range_from = args.get(f"{filter_name}.from", '')
+    range_to = args.get(f"{filter_name}.to", '')
+    display_name = request.args.get(filter_name + ".displayName", filter_name)
+    
+    if not range_from and not range_to:
+        return {}
+
+    applied_filter = f"&filter.name={filter_name}&{filter_name}.type=range" \
+        + f"&{filter_name}.displayName={display_name}&{filter_name}.from={range_from}&{filter_name}.to={range_to}"
+
+    range_filter = {
+        "range": {
+            "field": filter_name,
+            "from": range_from,
+            "to": range_to
         }
     }
-    return query_obj
+
+    return range_filter, applied_filter
+
+def terms_filter(args, filter_name):
+    term_value = args.get(f"{filter_name}.key", '')
+    display_name = args.get(filter_name + ".displayName", filter_name)
+
+    if not term_value:
+        return {}
+
+    term_filter = {
+        "terms": {
+            "field": f"{filter_name}.keyword",
+            "value": term_value
+        }
+    }
+
+    applied_filter = f"&filter.name={filter_name}&{filter_name}.type=terms" \
+        + f"&{filter_name}.displayName={display_name}&{filter_name}.key={term_value}"
+
+    return term_filter, applied_filter

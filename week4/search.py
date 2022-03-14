@@ -9,6 +9,8 @@ from week4.opensearch import get_opensearch
 
 import week4.utilities.query_utils as qu
 import week4.utilities.ltr_utils as lu
+from nltk.stem.snowball import SnowballStemmer
+stemmer = SnowballStemmer("english")
 
 bp = Blueprint('search', __name__, url_prefix='/search')
 
@@ -57,8 +59,18 @@ def process_filters(filters_input):
     return filters, display_filters, applied_filters
 
 def get_query_category(user_query, query_class_model):
-    print("IMPLEMENT ME: get_query_category")
-    return None
+    query = transform_query(user_query)
+    category_code, score = query_class_model.predict(query, 5)
+    category_code = [code.replace("__label__", "") for code in category_code]
+
+    predictions = zip(category_code, score)
+
+    category_codes = []
+    for (category_code, score) in predictions:
+        if score > 0.5:
+            category_codes.append(category_code)
+
+    return category_codes
 
 
 @bp.route('/query', methods=['GET', 'POST'])
@@ -136,10 +148,17 @@ def query():
         query_obj = qu.create_query("*", "", [], sort, sortDir, size=100)
 
     query_class_model = current_app.config["query_model"]
-    query_category = get_query_category(user_query, query_class_model)
-    if query_category is not None:
-        print("IMPLEMENT ME: add this into the filters object so that it gets applied at search time.  This should look like your `term` filter from week 1 for department but for categories instead")
-    #print("query obj: {}".format(query_obj))
+    query_categories = get_query_category(user_query, query_class_model)
+
+    print("Predicted catalogs", query_categories)
+    if query_categories != [] and user_query != "*" and False:
+        print("ADDING CATEGORIES FILTER")
+        query_obj["query"]["bool"]["filter"] = [{
+            "terms": {
+                "categoryPathIds.keyword": query_categories
+            }
+        }]
+
     response = opensearch.search(body=query_obj, index=current_app.config["index_name"], explain=explain)
     # Postprocess results here if you so desire
 
@@ -147,7 +166,7 @@ def query():
     if error is None:
         return render_template("search_results.jinja2", query=user_query, search_response=response,
                                display_filters=display_filters, applied_filters=applied_filters,
-                               sort=sort, sortDir=sortDir, model=model, explain=explain, query_category=query_category)
+                               sort=sort, sortDir=sortDir, model=model, explain=explain, query_category=query_categories)
     else:
         redirect(url_for("index"))
 
@@ -172,4 +191,11 @@ def get_click_prior(user_query):
     print("prior: %s" % click_prior)
     return click_prior
 
-
+def transform_query(query):
+    '''
+    Method taken from week3 instructor solution for product transform
+    '''
+    ret = query.lower()
+    ret = ''.join(c for c in ret if c.isalpha() or c.isnumeric() or c=='-' or c==' ' or c =='.')
+    ret = ' '.join(map(stemmer.stem, ret.split(' ')))
+    return ret

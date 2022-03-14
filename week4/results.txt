@@ -1,0 +1,90 @@
+min_queries = 100
+unique catalogs - 813
+Test results
+    Default parameters
+    Validating model on 1 label
+    N       100000
+    P@1     0.515
+    R@1     0.515
+    Validating model on 3 labels
+    N       100000
+    P@3     0.23
+    R@3     0.69
+    Validating model on 5 labels
+    N       100000
+    P@5     0.15
+    R@5     0.75
+
+    learning_rate=0.35 and epochs=30
+    Validating model on 1 label
+    N       100000
+    P@1     0.539
+    R@1     0.539
+    Validating model on 3 labels
+    N       100000
+    P@3     0.241
+    R@3     0.723
+    Validating model on 5 labels
+    N       100000
+    P@5     0.158
+    R@5     0.788
+
+    learning_rate=0.35 epochs=30 and wordNgrams=2
+    Validating model on 1 label
+    N       100000
+    P@1     0.556
+    R@1     0.556
+    Validating model on 3 labels
+    N       100000
+    P@3     0.253
+    R@3     0.741
+    Validating model on 5 labels
+    N       100000
+    P@5     0.16
+    R@5     0.812
+
+min_queries = 1000
+unique catalogs - 299
+Test results:
+
+    Default parameters
+    Validating model on 1 label
+    N       100000
+    P@1     0.576
+    R@1     0.576
+    Validating model on 3 labels
+    N       100000
+    P@3     0.255
+    R@3     0.764
+    Validating model on 5 labels
+    N       100000
+    P@5     0.165
+    R@5     0.823
+
+    learning_rate=0.35 and epochs=30
+    Validating model on 1 label
+    N       100000
+    P@1     0.585
+    R@1     0.585
+    Validating model on 3 labels
+    N       100000
+    P@3     0.258
+    R@3     0.773
+    Validating model on 5 labels
+    N       100000
+    P@5     0.167
+    R@5     0.834
+
+    learning_rate=0.35 epochs=30 and wordNgrams=2
+    Validating model on 1 label
+    N       100000
+    P@1     0.584
+    R@1     0.584
+    Validating model on 3 labels
+    N       100000
+    P@3     0.259
+    R@3     0.776
+    Validating model on 5 labels
+    N       100000
+    P@5     0.167
+    R@5     0.835
